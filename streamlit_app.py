@@ -5,17 +5,18 @@ import pandas as pd
 ACCESS_URL = "https://github.com/abubakars/mlos-validation/raw/main/access.csv"
 MLOS_URL = "https://github.com/abubakars/mlos-validation/raw/main/Niger%20MLoS%2012.1_.csv"
 
+# --- Load and clean data ---
 @st.cache_data
 def load_data():
     # Read both CSVs
     access_df = pd.read_csv(ACCESS_URL)
     mlos_df = pd.read_csv(MLOS_URL)
 
-    # Clean up column names (remove spaces, lowercase)
+    # Standardize column names
     access_df.columns = access_df.columns.str.strip().str.lower()
     mlos_df.columns = mlos_df.columns.str.strip().str.lower()
 
-    # Clean up data (remove spaces and lowercase for consistent matching)
+    # Clean values for consistent matching
     if "email" in access_df.columns:
         access_df["email"] = access_df["email"].astype(str).str.strip().str.lower()
     if "lga" in access_df.columns:
@@ -37,17 +38,24 @@ email = st.text_input("Enter your registered email").strip().lower()
 # --- Login button ---
 if st.button("Login"):
     if email:
-        # Check if email exists
+        # Check if email exists in access file
         if email in access_df["email"].values:
             user = access_df[access_df["email"] == email]
             user_lga = user.iloc[0]["lga"]
 
             st.success(f"✅ Login successful! Access granted for LGA: {user_lga.title()}")
 
-            # Filter MLoS data for user's LGA
+            # Filter MLoS data for that LGA
             lga_data = mlos_df[mlos_df["lga_name"] == user_lga]
+
             if not lga_data.empty:
+                # Count total settlements
+                total_settlements = len(lga_data)
+                st.info(f"📍 Total number of settlements in **{user_lga.title()}**: {total_settlements}")
+
+                # Display data
                 st.dataframe(lga_data)
+
             else:
                 st.warning("⚠️ No MLoS data found for your LGA.")
         else:
