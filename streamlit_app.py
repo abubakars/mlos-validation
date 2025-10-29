@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 
 # --- Load CSVs from GitHub raw links ---
-ACCESS_URL = "https://github.com/abubakars/mlos-validation/blob/main/access.csv"
-MLOS_URL = "https://github.com/abubakars/mlos-validation/blob/main/Niger%20MLoS%2012.1_.csv"
+ACCESS_URL = "https://github.com/abubakars/mlos-validation/raw/main/access.csv" 
+MLOS_URL = "https://github.com/abubakars/mlos-validation/raw/main/Niger%20MLoS%2012.1_.csv"
 
 @st.cache_data
 def load_data():
