@@ -15,11 +15,13 @@ mlos_df = pd.read_csv(mlos_url)
 access_df.columns = access_df.columns.str.strip().str.lower()
 mlos_df.columns = mlos_df.columns.str.strip().str.lower()
 
-# --- Initialize session state for login ---
+# --- Initialize session state ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_lga" not in st.session_state:
     st.session_state.user_lga = None
+if "selected_settlement" not in st.session_state:
+    st.session_state.selected_settlement = None
 
 # --- LOGIN SECTION ---
 if not st.session_state.logged_in:
@@ -35,15 +37,16 @@ if not st.session_state.logged_in:
                 st.session_state.logged_in = True
                 st.session_state.user_lga = user.iloc[0]["lga"]
                 st.success(f"✅ Login successful! Welcome to {st.session_state.user_lga} LGA.")
+
+# --- MAIN APP ---
 else:
-    # --- MAIN APP AFTER LOGIN ---
     user_lga = st.session_state.user_lga
     st.subheader(f"Settlements for **{user_lga}**")
 
     # Filter MLoS data by user's LGA
     df = mlos_df[mlos_df["lga_name"].str.lower() == user_lga.lower()]
 
-    # Keep only selected columns
+    # Columns to show in table
     cols_to_show = ["lga_name", "ward_name", "settlement_name", "primary_settlement_name"]
     df = df[[c for c in cols_to_show if c in df.columns]]
 
@@ -62,11 +65,42 @@ else:
     # --- Show total settlements ---
     st.write(f"Total settlements: {len(df)}")
 
+    # --- Settlement selection ---
+    settlements = df["settlement_name"].dropna().unique().tolist()
+    selected = st.selectbox("Select a Settlement to View/Edit", ["None"] + settlements)
+
+    if selected != "None":
+        st.session_state.selected_settlement = selected
+        # Show sidebar info
+        st.sidebar.header(f"🛠 Edit Settlement: {selected}")
+
+        # Get full record
+        record = mlos_df[
+            (mlos_df["lga_name"].str.lower() == user_lga.lower()) &
+            (mlos_df["settlement_name"].str.lower() == selected.lower())
+        ].iloc[0]
+
+        updated_data = {}
+        for col in mlos_df.columns:
+            value = record[col]
+            new_val = st.sidebar.text_input(col, value)
+            updated_data[col] = new_val
+
+        if st.sidebar.button("💾 Save Changes"):
+            for key, val in updated_data.items():
+                mlos_df.loc[
+                    (mlos_df["lga_name"].str.lower() == user_lga.lower()) &
+                    (mlos_df["settlement_name"].str.lower() == selected.lower()),
+                    key
+                ] = val
+            st.sidebar.success("✅ Settlement information updated successfully!")
+
     # --- Display table ---
     st.dataframe(df, use_container_width=True)
 
-    # --- Logout button ---
+    # --- Logout ---
     if st.button("Logout"):
         st.session_state.logged_in = False
         st.session_state.user_lga = None
+        st.session_state.selected_settlement = None
         st.experimental_rerun()
