@@ -34,29 +34,23 @@ st.sidebar.write("MLoS.csv columns:", list(mlos_df.columns))
 st.title("🔐 MLoS Access Portal")
 
 email = st.text_input("Enter your email")
-phone = st.text_input("Enter your phone number")
 
 if st.button("Login"):
-    # Make sure expected columns exist
-    required_cols = ["email", "phone", "lga"]
+    # Ensure required columns exist
+    required_cols = ["email", "lga"]
     if not all(col in access_df.columns for col in required_cols):
-        st.error("❌ 'access.csv' must contain at least Email, Phone, and LGA columns.")
+        st.error("❌ 'access.csv' must contain at least Email and LGA columns.")
     else:
-        # Normalize user inputs
         email = email.strip().lower()
-        phone = phone.strip()
 
-        # Verify user
-        user = access_df[
-            (access_df["email"].str.lower() == email) &
-            (access_df["phone"].astype(str) == phone)
-        ]
+        # Verify user by email only
+        user = access_df[access_df["email"].str.lower() == email]
 
         if not user.empty:
             user_lga = user.iloc[0]["lga"]
             st.success(f"✅ Login successful! Access granted for LGA: {user_lga}")
 
-            # Match on any common LGA column name
+            # Match LGA column dynamically
             possible_lga_cols = ["lga", "lga_name", "lga name"]
             lga_col = next((c for c in possible_lga_cols if c in mlos_df.columns), None)
 
@@ -69,4 +63,4 @@ if st.button("Login"):
             else:
                 st.error("❌ No LGA column found in MLoS CSV.")
         else:
-            st.error("❌ Invalid email or phone number. Please try again.")
+            st.error("❌ Invalid email. Please try again.")
