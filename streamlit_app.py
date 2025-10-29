@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 
 # --- Load CSVs from GitHub raw links ---
-ACCESS_URL = "https://raw.githubusercontent.com/YourUsername/YourRepo/main/Access.csv"
-MLOS_URL = "https://raw.githubusercontent.com/YourUsername/YourRepo/main/MLoS.csv"
+ACCESS_URL = "https://github.com/abubakars/mlos-validation/blob/main/access.csv"
+MLOS_URL = "https://github.com/abubakars/mlos-validation/blob/main/Niger%20MLoS%2012.1_.csv"
 
 @st.cache_data
 def load_data():
@@ -30,7 +30,7 @@ if st.button("Login"):
         st.success(f"✅ Login successful! Access granted for LGA: {user_lga}")
         
         # Filter MLoS data for user's LGA
-        lga_data = mlos_df[mlos_df["LGA"].str.lower() == user_lga.lower()]
+        lga_data = mlos_df[mlos_df["lga_name"].str.lower() == user_lga.lower()]
         if not lga_data.empty:
             st.dataframe(lga_data)
         else:
