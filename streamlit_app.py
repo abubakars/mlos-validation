@@ -15,50 +15,58 @@ mlos_df = pd.read_csv(mlos_url)
 access_df.columns = access_df.columns.str.strip().str.lower()
 mlos_df.columns = mlos_df.columns.str.strip().str.lower()
 
-# --- Login Section ---
-email = st.text_input("Enter your email")
+# --- Initialize session state for login ---
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "user_lga" not in st.session_state:
+    st.session_state.user_lga = None
 
-if st.button("Login"):
-    if "email" not in access_df.columns:
-        st.error("❌ 'Email' column not found in access.csv.")
-    else:
-        # Check if email exists
-        user = access_df[access_df["email"].str.lower() == email.lower()]
-
-        if user.empty:
-            st.error("❌ Invalid email. Please try again.")
+# --- LOGIN SECTION ---
+if not st.session_state.logged_in:
+    email = st.text_input("Enter your email")
+    if st.button("Login"):
+        if "email" not in access_df.columns:
+            st.error("❌ 'Email' column not found in access.csv.")
         else:
-            st.success("✅ Login successful!")
-
-            # Get LGA name from access file
-            user_lga = user.iloc[0]["lga"] if "lga" in user.columns else None
-
-            if not user_lga:
-                st.warning("⚠️ No LGA column found in access.csv.")
+            user = access_df[access_df["email"].str.lower() == email.lower()]
+            if user.empty:
+                st.error("❌ Invalid email. Please try again.")
             else:
-                st.subheader(f"Welcome! Showing settlements for **{user_lga}**")
+                st.session_state.logged_in = True
+                st.session_state.user_lga = user.iloc[0]["lga"]
+                st.success(f"✅ Login successful! Welcome to {st.session_state.user_lga} LGA.")
+else:
+    # --- MAIN APP AFTER LOGIN ---
+    user_lga = st.session_state.user_lga
+    st.subheader(f"Settlements for **{user_lga}**")
 
-                # Filter MLoS data by user's LGA
-                df = mlos_df[mlos_df["lga_name"].str.lower() == user_lga.lower()]
+    # Filter MLoS data by user's LGA
+    df = mlos_df[mlos_df["lga_name"].str.lower() == user_lga.lower()]
 
-                # Show only needed columns
-                show_cols = ["lga_name", "ward_name", "settlement_name", "primary_settlement_name"]
-                available = [c for c in show_cols if c in df.columns]
-                df = df[available]
+    # Keep only selected columns
+    cols_to_show = ["lga_name", "ward_name", "settlement_name", "primary_settlement_name"]
+    df = df[[c for c in cols_to_show if c in df.columns]]
 
-                # --- Ward filter ---
-                wards = sorted(df["ward_name"].dropna().unique()) if "ward_name" in df else []
-                ward = st.selectbox("Filter by Ward", ["All"] + wards)
-                if ward != "All":
-                    df = df[df["ward_name"] == ward]
+    # --- Ward filter ---
+    if "ward_name" in df.columns:
+        wards = sorted(df["ward_name"].dropna().unique())
+        ward = st.selectbox("Filter by Ward", ["All"] + wards)
+        if ward != "All":
+            df = df[df["ward_name"] == ward]
 
-                # --- Search box ---
-                search = st.text_input("Search for Settlement")
-                if search:
-                    df = df[df["settlement_name"].str.contains(search, case=False, na=False)]
+    # --- Search settlement ---
+    search = st.text_input("Search for Settlement")
+    if search:
+        df = df[df["settlement_name"].str.contains(search, case=False, na=False)]
 
-                # --- Show total settlements ---
-                st.write(f"Total settlements in this view: {len(df)}")
+    # --- Show total settlements ---
+    st.write(f"Total settlements: {len(df)}")
 
-                # --- Display table ---
-                st.dataframe(df, use_container_width=True)
+    # --- Display table ---
+    st.dataframe(df, use_container_width=True)
+
+    # --- Logout button ---
+    if st.button("Logout"):
+        st.session_state.logged_in = False
+        st.session_state.user_lga = None
+        st.experimental_rerun()
