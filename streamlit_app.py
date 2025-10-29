@@ -1,88 +1,64 @@
 import streamlit as st
 import pandas as pd
 
-# --- App Configuration ---
-st.set_page_config(page_title="Access Data Viewer", layout="wide")
+st.title("📍 MLoS Access Portal")
 
-# --- Session State for Login ---
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "user_email" not in st.session_state:
-    st.session_state.user_email = None
+# --- Load CSV files ---
+access_url = "https://github.com/abubakars/mlos-validation/raw/main/access.csv"
+mlos_url = "https://github.com/abubakars/mlos-validation/raw/main/Niger%20MLoS%2012.1_.csv"
+
+# Read both files
+access_df = pd.read_csv(access_url)
+mlos_df = pd.read_csv(mlos_url)
+
+# Clean up column names
+access_df.columns = access_df.columns.str.strip().str.lower()
+mlos_df.columns = mlos_df.columns.str.strip().str.lower()
 
 # --- Login Section ---
-def login():
-    st.title("🔐 Email Login to Access Data")
-    email_input = st.text_input("Enter your email address")
+email = st.text_input("Enter your email")
 
-    if st.button("Login"):
-        try:
-            df = pd.read_csv("access.csv")
-        except FileNotFoundError:
-            st.error("❌ 'access.csv' not found in the app directory.")
-            return
+if st.button("Login"):
+    if "email" not in access_df.columns:
+        st.error("❌ 'Email' column not found in access.csv.")
+    else:
+        # Check if email exists
+        user = access_df[access_df["email"].str.lower() == email.lower()]
 
-        # Normalize and validate email column
-        df.columns = df.columns.str.strip().str.lower()
-        if "email" not in df.columns:
-            st.error("❌ 'Email' column not found in 'access.csv'. Please check your file.")
-            return
-
-        if email_input.strip().lower() in df["email"].str.lower().values:
-            st.session_state.logged_in = True
-            st.session_state.user_email = email_input.strip().lower()
-            st.success("✅ Login successful!")
-            st.rerun()
+        if user.empty:
+            st.error("❌ Invalid email. Please try again.")
         else:
-            st.error("❌ Email not found. Please check your entry or contact admin.")
+            st.success("✅ Login successful!")
 
-# --- Main App Content ---
-def main_app():
-    st.title("📍 MLoS Data Viewer")
+            # Get LGA name from access file
+            user_lga = user.iloc[0]["lga"] if "lga" in user.columns else None
 
-    try:
-        df = pd.read_csv("access.csv")
-    except FileNotFoundError:
-        st.error("❌ 'access.csv' not found. Please check your file path.")
-        return
+            if not user_lga:
+                st.warning("⚠️ No LGA column found in access.csv.")
+            else:
+                st.subheader(f"Welcome! Showing settlements for **{user_lga}**")
 
-    # Select only the required columns
-    required_cols = ["lga_name", "ward_name", "settlement_name", "primary_settlement_name"]
-    df.columns = df.columns.str.strip().str.lower()
-    df = df[required_cols]
+                # Filter MLoS data by user's LGA
+                df = mlos_df[mlos_df["lga_name"].str.lower() == user_lga.lower()]
 
-    # --- Sidebar Filters ---
-    st.sidebar.header("🔎 Filter Options")
+                # Show only needed columns
+                show_cols = ["lga_name", "ward_name", "settlement_name", "primary_settlement_name"]
+                available = [c for c in show_cols if c in df.columns]
+                df = df[available]
 
-    lgas = sorted(df["lga_name"].dropna().unique())
-    selected_lga = st.sidebar.selectbox("Select LGA", ["All"] + list(lgas))
+                # --- Ward filter ---
+                wards = sorted(df["ward_name"].dropna().unique()) if "ward_name" in df else []
+                ward = st.selectbox("Filter by Ward", ["All"] + wards)
+                if ward != "All":
+                    df = df[df["ward_name"] == ward]
 
-    if selected_lga != "All":
-        df = df[df["lga_name"] == selected_lga]
+                # --- Search box ---
+                search = st.text_input("Search for Settlement")
+                if search:
+                    df = df[df["settlement_name"].str.contains(search, case=False, na=False)]
 
-    wards = sorted(df["ward_name"].dropna().unique())
-    selected_ward = st.sidebar.selectbox("Select Ward", ["All"] + list(wards))
+                # --- Show total settlements ---
+                st.write(f"Total settlements in this view: {len(df)}")
 
-    if selected_ward != "All":
-        df = df[df["ward_name"] == selected_ward]
-
-    # --- Search Settlements ---
-    search_term = st.sidebar.text_input("Search Settlement")
-    if search_term:
-        df = df[df["settlement_name"].str.contains(search_term, case=False, na=False)]
-
-    # --- Display Data ---
-    st.dataframe(df, use_container_width=True)
-
-    # --- Logout Button ---
-    st.sidebar.markdown("---")
-    if st.sidebar.button("Logout"):
-        st.session_state.logged_in = False
-        st.session_state.user_email = None
-        st.rerun()
-
-# --- App Flow ---
-if not st.session_state.logged_in:
-    login()
-else:
-    main_app()
+                # --- Display table ---
+                st.dataframe(df, use_container_width=True)
