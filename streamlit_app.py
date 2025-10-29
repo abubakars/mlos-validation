@@ -23,6 +23,8 @@ def load_data():
         access_df["lga"] = access_df["lga"].astype(str).str.strip().str.lower()
     if "lga_name" in mlos_df.columns:
         mlos_df["lga_name"] = mlos_df["lga_name"].astype(str).str.strip().str.lower()
+    if "ward_name" in mlos_df.columns:
+        mlos_df["ward_name"] = mlos_df["ward_name"].astype(str).str.strip().str.lower()
 
     return access_df, mlos_df
 
@@ -53,8 +55,16 @@ if st.button("Login"):
                 total_settlements = len(lga_data)
                 st.info(f"📍 Total number of settlements in **{user_lga.title()}**: {total_settlements}")
 
-                # Display data
-                st.dataframe(lga_data)
+                # --- Ward filter ---
+                wards = sorted(lga_data["ward_name"].dropna().unique())
+                selected_ward = st.selectbox("Filter by Ward", ["All Wards"] + wards)
+
+                if selected_ward != "All Wards":
+                    ward_data = lga_data[lga_data["ward_name"] == selected_ward]
+                    st.info(f"📍 Showing settlements in **{selected_ward.title()} Ward** — {len(ward_data)} records")
+                    st.dataframe(ward_data)
+                else:
+                    st.dataframe(lga_data)
 
             else:
                 st.warning("⚠️ No MLoS data found for your LGA.")
