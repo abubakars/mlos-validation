@@ -16,15 +16,11 @@ access_df, mlos_df = load_data()
 
 st.title("🔐 MLoS Access Portal")
 
-# --- Debugging: Show columns if needed ---
-# st.write("Access CSV columns:", list(access_df.columns))
-# st.write("MLOS CSV columns:", list(mlos_df.columns))
-
 # --- Login Section ---
 email = st.text_input("Enter your email").strip()
 
 if st.button("Login"):
-    # Normalize all email column names
+    # Try to find which column in access.csv contains email
     email_cols = [c for c in access_df.columns if c.lower() in ["email", "email_address", "user_email"]]
     if not email_cols:
         st.error("❌ 'Email' column not found in access.csv. Please check the file.")
@@ -36,36 +32,43 @@ if st.button("Login"):
             user_lga = user.iloc[0]["LGA"]
             st.success(f"✅ Login successful! Access granted for LGA: {user_lga}")
 
-            # Filter MLOS data for user LGA
+            # --- Filter MLoS data for user's LGA ---
             lga_data = mlos_df[mlos_df["lga_name"].str.lower() == user_lga.lower()]
 
             if not lga_data.empty:
+                # Keep only the required columns
+                display_cols = ["lga_name", "ward_name", "settlement_name", "primary_settlement_name"]
+                lga_display = lga_data[display_cols]
+
                 st.subheader(f"📍 LGA Summary: {user_lga}")
-                st.info(f"Total settlements in {user_lga}: **{len(lga_data)}**")
+                st.info(f"Total settlements in {user_lga}: **{len(lga_display)}**")
 
                 # --- Ward Filter ---
-                wards = sorted(lga_data["ward_name"].dropna().unique())
+                wards = sorted(lga_display["ward_name"].dropna().unique())
                 selected_ward = st.selectbox("Filter by Ward (optional):", ["All"] + wards)
                 if selected_ward != "All":
-                    lga_data = lga_data[lga_data["ward_name"] == selected_ward]
+                    lga_display = lga_display[lga_display["ward_name"] == selected_ward]
 
                 # --- Settlement Search ---
                 search_query = st.text_input("Search for a Settlement:")
                 if search_query:
-                    lga_data = lga_data[lga_data["settlement_name"].str.contains(search_query, case=False, na=False)]
+                    lga_display = lga_display[
+                        lga_display["settlement_name"].str.contains(search_query, case=False, na=False)
+                    ]
 
-                st.dataframe(lga_data)
+                # --- Display filtered table ---
+                st.dataframe(lga_display)
 
                 # --- Settlement Details Box ---
                 selected_settlement = st.selectbox(
-                    "Select a settlement to view details:",
-                    ["None"] + list(lga_data["settlement_name"].dropna().unique())
+                    "Select a settlement to view full details:",
+                    ["None"] + list(lga_display["settlement_name"].dropna().unique())
                 )
 
                 if selected_settlement != "None":
                     settlement_details = lga_data[lga_data["settlement_name"] == selected_settlement].iloc[0]
-                    st.subheader(f"🏠 Settlement Details: {selected_settlement}")
-                    st.json(settlement_details.to_dict())
+                    with st.expander(f"🏠 Full Details: {selected_settlement}", expanded=True):
+                        st.json(settlement_details.to_dict())
 
             else:
                 st.warning("⚠️ No MLoS data found for your LGA.")
